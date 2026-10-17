@@ -110,10 +110,9 @@ function AuthScreen({onAuthenticated}:{onAuthenticated:(name:string)=>void}) {
           {error&&<div className="auth-error" role="alert"><AlertTriangle size={15}/>{error}</div>}
           <button className="button button-primary auth-submit" type="submit" disabled={submitting}>{submitting?'Please wait…':mode==='login'?'Sign in to FINWALL':'Create account'}<ArrowRight size={16}/></button>
         </form>
-        <p className="auth-disclaimer"><LockKeyhole size={13}/> Demo mode: no real personal or banking information is required.</p>
       </section>
     </div>
-    <div className="auth-footer"><span>FINWALL · SCAMSTOP</span><span>Educational prototype · Always verify independently</span></div>
+    <div className="auth-footer"><span>FINWALL · SCAMSTOP</span></div>
   </div>;
 }
 
