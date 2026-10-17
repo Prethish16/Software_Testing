@@ -1,0 +1,1 @@
+Run with Gradle installed: `gradle test`. This Java module tests the risk-classification contract only; it does not execute React/TypeScript code. Verify with your instructor that this satisfies the JUnit requirement.
