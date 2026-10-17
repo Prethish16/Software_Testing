@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Activity, AlertOctagon, AlertTriangle, ArrowDownRight, ArrowRight, Bell, Check, ChevronRight, CircleHelp, ClipboardList, Clock3, FileText, FlaskConical, Gauge, Home, LockKeyhole, Menu, MessageSquareText, ScanSearch, Search, Settings as SettingsIcon, Shield, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Wallet, X } from 'lucide-react';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
+import { Activity, AlertOctagon, AlertTriangle, ArrowDownRight, ArrowRight, Bell, Check, ChevronRight, CircleHelp, ClipboardList, Clock3, FileText, FlaskConical, Gauge, Home, LockKeyhole, Mail, Menu, MessageSquareText, ScanSearch, Search, Settings as SettingsIcon, Shield, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, UserRound, Wallet, X } from 'lucide-react';
 import { Analysis, analyzeMessage, assessPayment, PaymentInput } from './engine';
+import { getFirebaseAuth } from './firebase';
 
 type Page = 'Dashboard'|'Scan Message'|'Scam Lab'|'Fraud Chain'|'Before I Pay'|'Reports'|'Settings';
 type Report = { id: string; source: string; preview: string; result: Analysis; time: string };
@@ -18,7 +20,106 @@ function RiskPill({level}:{level:string}) { return <span className={`risk-pill $
 function ScoreRing({score}:{score:number}) { return <div className={`score-ring ${score>75?'critical':score>50?'high':score>25?'caution':'safe'}`} style={{'--score':`${score*3.6}deg`} as React.CSSProperties}><div><strong>{score}%</strong><span>Risk score</span></div></div>; }
 function Stat({label,value,sub,icon:Icon,tone}:{label:string;value:string;sub:string;icon:typeof Shield; tone:string}) { return <div className="stat-card"><div className={`stat-icon ${tone}`}><Icon size={19}/></div><div className="stat-label">{label}</div><div className="stat-value">{value}</div><div className="stat-sub">{sub}</div></div>; }
 
+function AuthScreen({onAuthenticated}:{onAuthenticated:(name:string)=>void}) {
+  const [mode,setMode] = useState<'login'|'register'>('login');
+  const [name,setName] = useState('');
+  const [email,setEmail] = useState('');
+  const [password,setPassword] = useState('');
+  const [confirmPassword,setConfirmPassword] = useState('');
+  const [error,setError] = useState('');
+  const [message,setMessage] = useState('');
+  const [showPassword,setShowPassword] = useState(false);
+  const [submitting,setSubmitting] = useState(false);
+
+  const submit = async (event:React.FormEvent) => {
+    event.preventDefault();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+    if (mode === 'register' && !name.trim()) {
+      setError('Enter your name to create an account.');
+      return;
+    }
+    if (mode === 'register' && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    setMessage('');
+    try {
+      const auth = getFirebaseAuth();
+      const normalizedEmail = trimmedEmail.toLowerCase();
+      if (mode === 'register') {
+        const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+        await updateProfile(credential.user, {displayName:name.trim()});
+        await signOut(auth);
+        setMode('login');
+        setPassword('');
+        setConfirmPassword('');
+        setMessage('Account created. Sign in with your new credentials.');
+      } else {
+        const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+        onAuthenticated(credential.user.displayName || normalizedEmail.split('@')[0]);
+      }
+    } catch (cause) {
+      const code = cause && typeof cause === 'object' && 'code' in cause ? cause.code : '';
+      setError(code === 'auth/email-already-in-use' ? 'An account with this email already exists. Sign in instead.'
+        : code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found' ? 'Incorrect email or password.'
+        : code === 'auth/too-many-requests' ? 'Too many attempts. Please wait and try again.'
+        : cause instanceof Error ? cause.message : 'Authentication failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const switchMode = (nextMode:'login'|'register') => {
+    setMode(nextMode);
+    setError('');
+    setMessage('');
+  };
+
+  return <div className="auth-shell">
+    <div className="auth-brand"><div className="brand-mark"><ShieldCheck size={23}/></div><div><b>FINWALL</b><span>SCAMSTOP <i>DEMO</i></span></div></div>
+    <div className="auth-layout">
+      <section className="auth-story">
+        <span className="auth-kicker"><span className="live-dot"/> YOUR PERSONAL SCAM CHECKPOINT</span>
+        <h1>Pause the pressure.<br/><em>Protect your money.</em></h1>
+        <p>Make safer decisions with a calm, clear second opinion before you click, share, or pay.</p>
+        <div className="auth-points">
+          <div><span><Check size={15}/></span><div><b>Spot suspicious signals</b><small>Understand the patterns behind risky messages.</small></div></div>
+          <div><span><Check size={15}/></span><div><b>Check before you pay</b><small>Take a moment to review unexpected requests.</small></div></div>
+          <div><span><Check size={15}/></span><div><b>Keep your decisions private</b><small>This educational demo runs locally in your browser.</small></div></div>
+        </div>
+      </section>
+      <section className="auth-card">
+        <div className="auth-card-heading"><div className="auth-icon"><LockKeyhole size={19}/></div><div><h2>{mode==='login'?'Welcome back':'Create your account'}</h2><p>{mode==='login'?'Sign in to continue to your safety center.':'Start building safer financial habits today.'}</p></div></div>
+        <div className="auth-tabs" role="tablist"><button className={mode==='login'?'active':''} onClick={()=>switchMode('login')} type="button">Sign in</button><button className={mode==='register'?'active':''} onClick={()=>switchMode('register')} type="button">Register</button></div>
+        <form onSubmit={submit} noValidate>
+          {mode==='register'&&<label className="auth-field"><span>Full name</span><div className="auth-input"><UserRound size={17}/><input value={name} onChange={e=>{setName(e.target.value);setError('');}} placeholder="Your name" autoComplete="name"/></div></label>}
+          <label className="auth-field"><span>Email address</span><div className="auth-input"><Mail size={17}/><input type="email" value={email} onChange={e=>{setEmail(e.target.value);setError('');}} placeholder="you@example.com" autoComplete="email"/></div></label>
+          <label className="auth-field"><span>Password</span><div className="auth-input"><LockKeyhole size={17}/><input type={showPassword?'text':'password'} value={password} onChange={e=>{setPassword(e.target.value);setError('');}} placeholder="At least 6 characters" autoComplete={mode==='login'?'current-password':'new-password'}/><button type="button" className="password-toggle" onClick={()=>setShowPassword(!showPassword)} aria-label={showPassword?'Hide password':'Show password'}>{showPassword?'Hide':'Show'}</button></div></label>
+          {mode==='register'&&<label className="auth-field"><span>Confirm password</span><div className="auth-input"><LockKeyhole size={17}/><input type={showPassword?'text':'password'} value={confirmPassword} onChange={e=>{setConfirmPassword(e.target.value);setError('');}} placeholder="Re-enter your password" autoComplete="new-password"/></div></label>}
+          {message&&<div className="auth-message" role="status"><Check size={15}/>{message}</div>}
+          {error&&<div className="auth-error" role="alert"><AlertTriangle size={15}/>{error}</div>}
+          <button className="button button-primary auth-submit" type="submit" disabled={submitting}>{submitting?'Please wait…':mode==='login'?'Sign in to FINWALL':'Create account'}<ArrowRight size={16}/></button>
+        </form>
+        <p className="auth-disclaimer"><LockKeyhole size={13}/> Demo mode: no real personal or banking information is required.</p>
+      </section>
+    </div>
+    <div className="auth-footer"><span>FINWALL · SCAMSTOP</span><span>Educational prototype · Always verify independently</span></div>
+  </div>;
+}
+
 export default function App() {
+  const [authenticated,setAuthenticated] = useState(false);
+  const [userName,setUserName] = useState('');
   const [page,setPage] = useState<Page>('Dashboard');
   const [message,setMessage] = useState('');
   const [analysis,setAnalysis] = useState<Analysis|null>(null);
@@ -52,6 +153,7 @@ export default function App() {
   const description = page==='Dashboard'?'A clearer view of suspicious signals and your recent activity.':page==='Scan Message'?'Paste a message or payment request to check for common scam indicators.':page==='Scam Lab'?'Explore safe simulations. No real links, transactions, or money are involved.':page==='Fraud Chain'?'Review the signals contributing to a scan result.':page==='Before I Pay'?'Assess a payment request using the details you know.':page==='Reports'?'Review scan history captured during this browser session.':'Control demo protection and analysis preferences.';
   const currentResult = chainReport?.result || analysis;
   const chartData = useMemo(()=>[ {label:'Safe',count:reports.filter(r=>r.result.level==='Safe').length,color:'var(--safe)'},{label:'Caution',count:reports.filter(r=>r.result.level==='Caution').length,color:'var(--caution)'},{label:'High',count:reports.filter(r=>r.result.level==='High').length,color:'var(--high)'},{label:'Critical',count:reports.filter(r=>r.result.level==='Critical').length,color:'var(--critical)'}], [reports]);
+  if (!authenticated) return <AuthScreen onAuthenticated={name=>{setUserName(name);setAuthenticated(true);}} />;
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><ShieldCheck size={23}/></div><div><b>FINWALL</b><span>SCAMSTOP <i>DEMO</i></span></div></div>
@@ -60,7 +162,7 @@ export default function App() {
       <div className="sidebar-bottom"><div className="protection-mini"><span className={`live-dot ${protection?'':'off'}`}/><div><b>{protection?'Protection enabled':'Protection paused'}</b><small>Browser demo only</small></div><button aria-label="Toggle protection" onClick={()=>setProtection(!protection)} className={`switch ${protection?'on':''}`}><span/></button></div><div className="privacy-note"><LockKeyhole size={14}/></div><div className="version">FINWALL · Prototype v1.0</div></div>
     </aside>
     <main className="main-area">
-      <header className="topbar"><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><b>{page}</b></div><div className="top-actions"><span className="demo-label"></span><button className="icon-button" aria-label="Notifications" onClick={()=>setNotice('No new notifications in this demo.')}><Bell size={18}/></button><div className="avatar">FW</div></div></header>
+      <header className="topbar"><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><b>{page}</b></div><div className="top-actions"><span className="demo-label"></span><button className="icon-button" aria-label="Notifications" onClick={()=>setNotice('No new notifications in this demo.')}><Bell size={18}/></button><div className="avatar" title={userName}>{userName.slice(0,2).toUpperCase()||'FW'}</div></div></header>
       <div className="content-wrap">
         <div className="page-heading"><div><div className="eyebrow"><Sparkles size={13}/> FINANCIAL SECURITY CENTER</div><h1>{title}</h1><p>{description}</p></div>{page==='Dashboard'&&<button className="button button-primary" onClick={()=>setPage('Scan Message')}><ScanSearch size={16}/> New scan <ArrowRight size={15}/></button>}</div>
         {notice&&<div className="notice"><Check size={16}/>{notice}<button aria-label="Dismiss notice" onClick={()=>setNotice('')}><X size={15}/></button></div>}

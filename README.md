@@ -13,6 +13,11 @@ npm run dev
 ```
 Open http://localhost:8000.
 
+## Firebase authentication
+The deployed app uses Firebase Email/Password Authentication. Copy `.env.example` to `.env.local` for local development and fill in the web app configuration from Firebase Console. In Firebase Console, enable **Authentication > Sign-in method > Email/Password**.
+
+For Vercel, add each `VITE_FIREBASE_*` value under **Project Settings > Environment Variables**, then redeploy. These web configuration values are intended for browser use; never add a Firebase service-account key or other private server credential to this app.
+
 ## Build and tests
 ```bash
 npm test
