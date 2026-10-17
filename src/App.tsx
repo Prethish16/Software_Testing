@@ -120,6 +120,7 @@ function AuthScreen({onAuthenticated}:{onAuthenticated:(name:string)=>void}) {
 export default function App() {
   const [authenticated,setAuthenticated] = useState(false);
   const [userName,setUserName] = useState('');
+  const [profileOpen,setProfileOpen] = useState(false);
   const [page,setPage] = useState<Page>('Dashboard');
   const [message,setMessage] = useState('');
   const [analysis,setAnalysis] = useState<Analysis|null>(null);
@@ -149,6 +150,15 @@ export default function App() {
     } catch(e) { setPaymentResult(null); setError(e instanceof Error?e.message:'Unable to assess payment.'); }
   };
   const openReport = (r:Report) => { setChainReport(r); setAnalysis(r.result); setMessage(r.preview); setPage('Fraud Chain'); };
+  const logOut = async () => {
+    try {
+      await signOut(getFirebaseAuth());
+      setAuthenticated(false); setUserName(''); setPage('Dashboard'); setProfileOpen(false); setNotice(''); setError('');
+    } catch (cause) {
+      setProfileOpen(false);
+      setError(cause instanceof Error ? cause.message : 'Unable to log out. Please try again.');
+    }
+  };
   const title = page==='Dashboard'?'Your financial safety, at a glance':page==='Scan Message'?'Analyze before you act':page==='Scam Lab'?'Learn to recognize the playbook':page==='Fraud Chain'?'Understand how risk builds':page==='Before I Pay'?'Pause. Verify. Then pay.':page==='Reports'?'Your security activity': 'Make protection work for you';
   const description = page==='Dashboard'?'A clearer view of suspicious signals and your recent activity.':page==='Scan Message'?'Paste a message or payment request to check for common scam indicators.':page==='Scam Lab'?'Explore safe simulations. No real links, transactions, or money are involved.':page==='Fraud Chain'?'Review the signals contributing to a scan result.':page==='Before I Pay'?'Assess a payment request using the details you know.':page==='Reports'?'Review scan history captured during this browser session.':'Control demo protection and analysis preferences.';
   const currentResult = chainReport?.result || analysis;
@@ -162,7 +172,7 @@ export default function App() {
       <div className="sidebar-bottom"><div className="protection-mini"><span className={`live-dot ${protection?'':'off'}`}/><div><b>{protection?'Protection enabled':'Protection paused'}</b><small>Browser demo only</small></div><button aria-label="Toggle protection" onClick={()=>setProtection(!protection)} className={`switch ${protection?'on':''}`}><span/></button></div><div className="privacy-note"><LockKeyhole size={14}/></div><div className="version">FINWALL · Prototype v1.0</div></div>
     </aside>
     <main className="main-area">
-      <header className="topbar"><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><b>{page}</b></div><div className="top-actions"><span className="demo-label"></span><button className="icon-button" aria-label="Notifications" onClick={()=>setNotice('No new notifications in this demo.')}><Bell size={18}/></button><div className="avatar" title={userName}>{userName.slice(0,2).toUpperCase()||'FW'}</div></div></header>
+      <header className="topbar"><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><b>{page}</b></div><div className="top-actions"><span className="demo-label"></span><button className="icon-button" aria-label="Notifications" onClick={()=>setNotice('No new notifications in this demo.')}><Bell size={18}/></button><div className="profile-menu"><button className={`avatar profile-trigger ${profileOpen?'open':''}`} title={userName} aria-label="Open profile menu" aria-expanded={profileOpen} onClick={()=>setProfileOpen(open=>!open)}>{userName.slice(0,2).toUpperCase()||'FW'}</button>{profileOpen&&<div className="profile-dropdown" role="menu"><button role="menuitem" onClick={()=>{setPage('Settings');setProfileOpen(false);setNotice('');setError('');}}><SettingsIcon size={15}/>Settings</button><button role="menuitem" onClick={logOut}><LockKeyhole size={15}/>Log out</button></div>}</div></div></header>
       <div className="content-wrap">
         <div className="page-heading"><div><div className="eyebrow"><Sparkles size={13}/> FINANCIAL SECURITY CENTER</div><h1>{title}</h1><p>{description}</p></div>{page==='Dashboard'&&<button className="button button-primary" onClick={()=>setPage('Scan Message')}><ScanSearch size={16}/> New scan <ArrowRight size={15}/></button>}</div>
         {notice&&<div className="notice"><Check size={16}/>{notice}<button aria-label="Dismiss notice" onClick={()=>setNotice('')}><X size={15}/></button></div>}
